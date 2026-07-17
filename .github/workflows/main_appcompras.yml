@@ -1,0 +1,45 @@
+# Despliegue a Azure App Service `appcompras` (sector Compras).
+# Convención Offal: un solo job, SIN artifacts (para no consumir storage de
+# GitHub Actions). Se construye el frontend Angular, se copia dentro de
+# backend/public y se despliega backend/ como la app Node. Oryx instala las
+# dependencias del backend en el server.
+name: Deploy appcompras
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Usar Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build del frontend (Angular)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copiar el build dentro del backend
+        run: |
+          rm -rf backend/public
+          mkdir -p backend/public
+          cp -r frontend/dist/frontend/browser/* backend/public/
+
+      - name: Deploy a Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: appcompras
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_APPCOMPRAS }}
+          package: backend
+          startup-command: 'node server.js'

@@ -41,7 +41,11 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada'
 // --- Frontend ---
 // En Azure el backend y el build de Angular van juntos en el mismo App Service,
 // así que Express sirve los estáticos y deja que el router del SPA maneje el resto.
-const CLIENT_DIR = path.join(__dirname, '..', 'frontend', 'dist', 'frontend', 'browser');
+// El deploy copia el build a backend/public (ver .github/workflows); en desarrollo
+// se toma directo del dist del frontend.
+const CLIENT_DIR = fs.existsSync(path.join(__dirname, 'public'))
+  ? path.join(__dirname, 'public')
+  : path.join(__dirname, '..', 'frontend', 'dist', 'frontend', 'browser');
 if (fs.existsSync(CLIENT_DIR)) {
   app.use(express.static(CLIENT_DIR));
   app.get('*', (req, res) => res.sendFile(path.join(CLIENT_DIR, 'index.html')));

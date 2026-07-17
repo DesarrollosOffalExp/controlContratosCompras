@@ -4,6 +4,8 @@ node_modules/
 # Build / cache
 frontend/dist/
 frontend/.angular/
+# Build del frontend copiado dentro del backend por el workflow de deploy
+backend/public/
 *.log
 
 # Variables de entorno (usar .env.example como plantilla)
