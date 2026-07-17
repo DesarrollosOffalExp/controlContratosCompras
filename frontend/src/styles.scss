@@ -1,0 +1,185 @@
+/* =====================================================================
+   Identidad visual Offal (sector Compras)
+   Misma paleta que el portal y las otras 3 apps: base teal + rojo de marca,
+   tipografía Inter, modo oscuro. Se aplica encima de Bootstrap para no
+   reescribir cada página: acá se re-tematizan sus componentes.
+   ===================================================================== */
+
+:root {
+  /* Base oscura, de la web comercial (offalexp.com.ar) */
+  --bg: #0c1c26;
+  --bg-2: #0a171f;
+  --panel: #12242f;
+  --panel-2: #162b37;
+  --line: #23353f;
+  --text: #eef2f5;
+  --muted: #8ba0ab;
+  /* Rojo de marca (muestreado del logo) */
+  --red: #c7163a;
+  --red-bright: #e11f46;
+  --red-deep: #9e1130;
+  /* Info y estados (compartidos con el resto del ecosistema) */
+  --cyan: #26b6d9;
+
+  /* Puentes hacia las variables de Bootstrap para que sus componentes hereden. */
+  --bs-body-bg: var(--bg);
+  --bs-body-color: var(--text);
+  --bs-border-color: var(--line);
+  --bs-primary: var(--red);
+  --bs-primary-rgb: 199, 22, 58;
+  --bs-link-color: var(--cyan);
+  --bs-link-hover-color: #4fc9e6;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(900px 480px at 78% -8%, rgba(199, 22, 58, 0.14), transparent 58%),
+    radial-gradient(700px 500px at 0% 0%, rgba(255, 255, 255, 0.03), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 { color: var(--text); font-weight: 700; letter-spacing: -0.01em; }
+a { color: var(--cyan); text-decoration: none; }
+a:hover { color: #4fc9e6; }
+.text-muted, .small.text-muted { color: var(--muted) !important; }
+hr { border-color: var(--line); opacity: 1; }
+
+/* ---------- Tarjetas / paneles ---------- */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+}
+.card .card-header,
+.card .card-footer {
+  background: var(--panel-2);
+  border-color: var(--line);
+  color: var(--text);
+}
+.bg-white, .bg-light { background: var(--panel) !important; color: var(--text) !important; }
+.shadow-sm { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important; }
+
+/* ---------- Tablas ---------- */
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text);
+  --bs-table-border-color: var(--line);
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+  --bs-table-striped-color: var(--text);
+  --bs-table-hover-bg: rgba(199, 22, 58, 0.08);
+  --bs-table-hover-color: var(--text);
+  color: var(--text);
+}
+.table > thead th {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+.table > :not(caption) > * > * { border-bottom-color: var(--line); }
+.table-light, .table-light > * { --bs-table-bg: var(--panel-2); color: var(--text); }
+
+/* ---------- Formularios ---------- */
+.form-control, .form-select {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 9px;
+}
+.form-control::placeholder { color: var(--muted); }
+.form-control:focus, .form-select:focus {
+  background: var(--bg-2);
+  color: var(--text);
+  border-color: var(--red);
+  box-shadow: 0 0 0 0.2rem rgba(199, 22, 58, 0.2);
+}
+.form-control:disabled, .form-control[readonly] { background: var(--panel-2); color: var(--muted); }
+.form-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+.form-select option { background: var(--panel); color: var(--text); }
+.input-group-text {
+  background: var(--panel-2);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+/* ---------- Botones ---------- */
+.btn-primary {
+  --bs-btn-bg: var(--red);
+  --bs-btn-border-color: var(--red);
+  --bs-btn-hover-bg: var(--red-bright);
+  --bs-btn-hover-border-color: var(--red-bright);
+  --bs-btn-active-bg: var(--red-deep);
+  --bs-btn-active-border-color: var(--red-deep);
+  --bs-btn-disabled-bg: var(--red);
+  --bs-btn-disabled-border-color: var(--red);
+  color: #fff;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--red-bright);
+  --bs-btn-border-color: var(--red);
+  --bs-btn-hover-bg: var(--red);
+  --bs-btn-hover-border-color: var(--red);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--red);
+  --bs-btn-active-border-color: var(--red);
+}
+.btn-secondary, .btn-outline-secondary {
+  --bs-btn-color: var(--text);
+  --bs-btn-border-color: var(--line);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-bg: var(--panel-2);
+  --bs-btn-hover-border-color: var(--muted);
+  --bs-btn-hover-color: var(--text);
+}
+.btn-light {
+  --bs-btn-bg: var(--panel-2);
+  --bs-btn-border-color: var(--line);
+  --bs-btn-color: var(--text);
+  --bs-btn-hover-bg: var(--panel);
+  --bs-btn-hover-color: var(--text);
+}
+
+/* ---------- Badges / estados ---------- */
+.badge.bg-secondary { background: var(--panel-2) !important; color: var(--text); border: 1px solid var(--line); }
+.badge.bg-success { background: rgba(35, 197, 94, 0.16) !important; color: #4ade80; }
+.badge.bg-warning { background: rgba(234, 179, 8, 0.16) !important; color: #facc15; }
+.badge.bg-danger  { background: rgba(199, 22, 58, 0.18) !important; color: var(--red-bright); }
+.badge.bg-info    { background: rgba(38, 182, 217, 0.16) !important; color: var(--cyan); }
+.badge.bg-primary { background: var(--red) !important; color: #fff; }
+
+/* Resaltados de vencimiento del listado de contratos (ver README). */
+.table-warning, .table-warning > * { --bs-table-bg: rgba(234, 179, 8, 0.12); color: var(--text); }
+.table-danger, .table-danger > *   { --bs-table-bg: rgba(199, 22, 58, 0.14); color: var(--text); }
+
+/* ---------- Alertas ---------- */
+.alert-danger { background: rgba(199, 22, 58, 0.12); border-color: rgba(199, 22, 58, 0.4); color: #ffb3c1; }
+.alert-success { background: rgba(35, 197, 94, 0.12); border-color: rgba(35, 197, 94, 0.4); color: #86efac; }
+.alert-info { background: rgba(38, 182, 217, 0.12); border-color: rgba(38, 182, 217, 0.4); color: #7fdcef; }
+
+/* ---------- Modales / dropdowns ---------- */
+.modal-content { background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.modal-header, .modal-footer { border-color: var(--line); }
+.dropdown-menu {
+  --bs-dropdown-bg: var(--panel);
+  --bs-dropdown-border-color: var(--line);
+  --bs-dropdown-color: var(--text);
+  --bs-dropdown-link-color: var(--text);
+  --bs-dropdown-link-hover-bg: var(--panel-2);
+  --bs-dropdown-link-hover-color: var(--text);
+}
+
+/* Acento de marca reutilizable para KPIs y encabezados de sección. */
+.text-brand { color: var(--red-bright) !important; }
+.border-brand { border-color: var(--red) !important; }

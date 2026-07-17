@@ -1,0 +1,5 @@
+# See https://docs.angular.dev/tools/cli/setup-local#prerequisites for more information.
+.angular/
+dist/
+node_modules/
+*.log

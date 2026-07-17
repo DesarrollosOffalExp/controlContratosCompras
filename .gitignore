@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Build / cache
+frontend/dist/
+frontend/.angular/
+*.log
+
+# Variables de entorno (usar .env.example como plantilla)
+.env
+backend/.env
+
+# PDFs de contratos subidos (no versionar archivos de usuarios)
+backend/uploads/contratos/*
+!backend/uploads/contratos/.gitkeep
+
+# Respaldos de base de datos
+backend/backup_*.sql
+
+# Archivos temporales de prueba
+backend/_*.pdf
+backend/_*.txt
+
+# Sistema
+.DS_Store
+Thumbs.db
