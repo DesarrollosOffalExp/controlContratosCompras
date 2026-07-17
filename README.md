@@ -46,14 +46,35 @@ npm start          # app en http://localhost:4200; /api se proxea al backend (pr
 
 ## Despliegue (Azure App Service)
 
-El backend sirve el build de Angular (`frontend/dist/frontend/browser`), así que
-todo va en un mismo App Service, same-origin (necesario para las cookies de Easy Auth).
+Se despliega solo con **GitHub Actions** (`.github/workflows/main_appcompras.yml`)
+en cada push a `main`: construye el frontend Angular, lo copia a `backend/public`,
+instala las dependencias del backend y publica la carpeta `backend/` como app Node.
+El backend sirve ese build, así que todo va en un mismo App Service, same-origin
+(necesario para las cookies de Easy Auth). Azure arranca `node server.js` vía el
+`package.json` del backend.
 
-1. `cd frontend && npm run build`
-2. Desplegar el repo; el App Service arranca `backend/server.js`.
-3. Activar **Authentication** (Easy Auth) contra el registro de Entra del ecosistema.
-4. Variables: credenciales `AZURE_SQL_*` (o `DB_*`), `NODE_ENV=production`, y
-   `UPLOAD_DIR=/home/data/contratos` (único disco persistente entre reinicios).
+**App Service:** `appcompras` — Resource Group `AppCompras`, **Canada Central**
+(distinta región que el resto de las apps Offal, que están en East US), Linux,
+Node 24, plan P0v3. Dominio:
+`appcompras-cng7b6ewgxdhaqbh.canadacentral-01.azurewebsites.net`.
+
+### Puesta a punto en Azure (una sola vez)
+
+1. **Secret de GitHub** `AZUREAPPSERVICE_PUBLISHPROFILE_APPCOMPRAS` con el publish
+   profile de la app (Portal → *Get publish profile*; requiere *Basic authentication*
+   habilitada en la app).
+2. **App settings** (Settings → Environment variables), tomados de cualquier otra
+   app Offal porque comparten la base `controletiquetas`:
+   - `AZURE_SQL_SERVER`, `AZURE_SQL_DATABASE=controletiquetas`, `AZURE_SQL_USERNAME`,
+     `AZURE_SQL_PASSWORD`, `AZURE_SQL_PORT=1433` (el código también acepta `DB_*`).
+   - `NODE_ENV=production`
+   - `UPLOAD_DIR=/home/data/contratos` (único disco persistente entre reinicios).
+   - `SCM_DO_BUILD_DURING_DEPLOYMENT=false` (el paquete ya trae `node_modules`).
+3. **Firewall del servidor SQL** → Networking → activar *Allow Azure services and
+   resources to access this server* (clave: la app está en otra región).
+4. **Authentication (Easy Auth)** contra el registro de Entra del ecosistema.
+5. **Padrón:** filas en `acceso.Permisos` con `App='contratos'` para cada usuario
+   habilitado (sin permiso: 403, y la app no aparece en el portal).
 
 ## API principal
 
