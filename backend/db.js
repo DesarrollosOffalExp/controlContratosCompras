@@ -35,6 +35,27 @@ async function inicializarEsquema(pool) {
 
         IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'acceso')
             EXEC('CREATE SCHEMA acceso');
+
+        IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'comun')
+            EXEC('CREATE SCHEMA comun');
+    `);
+
+    // --- Maestro CENTRAL de proveedores (esquema comun, compartido) ---
+    // Una sola lista de proveedores para toda la empresa. Si otra app ya lo creó,
+    // no hace nada. compras.Proveedores es una VISTA sobre esto (ver más abajo).
+    await pool.request().query(`
+        IF OBJECT_ID(N'[comun].[Proveedores]', N'U') IS NULL
+        CREATE TABLE comun.Proveedores (
+            ProveedorId   INT IDENTITY(1,1) PRIMARY KEY,
+            Nombre        NVARCHAR(200) NOT NULL,
+            Cuit          NVARCHAR(20)  NULL,
+            Contacto      NVARCHAR(150) NULL,
+            Email         NVARCHAR(256) NULL,
+            Telefono      NVARCHAR(50)  NULL,
+            Direccion     NVARCHAR(300) NULL,
+            Activo        BIT NOT NULL DEFAULT 1,
+            FechaCreacion DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+        );
     `);
 
     // --- Padrón central de acceso (compartido con las otras apps) ---
@@ -60,21 +81,36 @@ async function inicializarEsquema(pool) {
         );
     `);
 
-    // --- Tablas propias (esquema compras) ---
-    // Los ENUM de Postgres pasan a CHECK constraints; SERIAL a IDENTITY.
+    // --- compras.Proveedores: VISTA sobre el maestro comun.Proveedores ---
+    // Fuente única de proveedores. Compras lista/crea/edita directamente en el
+    // maestro, con los nombres de columna que la app ya usa (id, razon_social, ...).
+    // Si existía como TABLA (versión vieja), se migra a vista (soltando la FK antes).
     await pool.request().query(`
-        IF OBJECT_ID(N'[compras].[Proveedores]', N'U') IS NULL
-        CREATE TABLE compras.Proveedores (
-            id           INT IDENTITY(1,1) PRIMARY KEY,
-            razon_social NVARCHAR(180) NOT NULL,
-            contacto     NVARCHAR(120) NULL,
-            email        NVARCHAR(160) NULL,
-            telefono     NVARCHAR(40) NULL,
-            direccion    NVARCHAR(255) NULL,
-            activo       BIT NOT NULL CONSTRAINT DF_compras_Proveedores_Activo DEFAULT (1),
-            created_at   DATETIME2 NOT NULL CONSTRAINT DF_compras_Proveedores_Created DEFAULT SYSUTCDATETIME()
-        );
+        IF OBJECT_ID(N'[compras].[Proveedores]', N'U') IS NOT NULL
+        BEGIN
+            DECLARE @fkp SYSNAME, @sqlp NVARCHAR(MAX);
+            SELECT @fkp = fk.name FROM sys.foreign_keys fk
+            WHERE fk.parent_object_id = OBJECT_ID('compras.Contratos')
+              AND fk.referenced_object_id = OBJECT_ID('compras.Proveedores');
+            IF @fkp IS NOT NULL
+            BEGIN
+                SET @sqlp = N'ALTER TABLE compras.Contratos DROP CONSTRAINT ' + QUOTENAME(@fkp);
+                EXEC sp_executesql @sqlp;
+            END
+            DROP TABLE compras.Proveedores;
+        END
+    `);
+    await pool.request().query(`
+        IF OBJECT_ID(N'[compras].[Proveedores]', N'V') IS NULL
+        EXEC('CREATE VIEW compras.Proveedores AS
+            SELECT ProveedorId AS id, Nombre AS razon_social, Contacto AS contacto,
+                   Email AS email, Telefono AS telefono, Direccion AS direccion,
+                   Activo AS activo, FechaCreacion AS created_at
+            FROM comun.Proveedores');
+    `);
 
+    // --- Tablas propias (esquema compras) ---
+    await pool.request().query(`
         IF OBJECT_ID(N'[compras].[Sectores]', N'U') IS NULL
         CREATE TABLE compras.Sectores (
             id         INT IDENTITY(1,1) PRIMARY KEY,
@@ -111,7 +147,7 @@ async function inicializarEsquema(pool) {
             CONSTRAINT CK_compras_Contratos_Estado CHECK (estado IN
                 ('borrador','activo','vencido','cancelado','renovado')),
             CONSTRAINT FK_compras_Contratos_Proveedor FOREIGN KEY (proveedor_id)
-                REFERENCES compras.Proveedores(id),
+                REFERENCES comun.Proveedores(ProveedorId),
             CONSTRAINT FK_compras_Contratos_Sector FOREIGN KEY (sector_id)
                 REFERENCES compras.Sectores(id)
         );
@@ -126,9 +162,6 @@ async function inicializarEsquema(pool) {
 
         IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_compras_Contratos_FechaFin')
             CREATE INDEX IX_compras_Contratos_FechaFin ON compras.Contratos (fecha_fin);
-
-        IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_compras_Proveedores_Razon')
-            CREATE INDEX IX_compras_Proveedores_Razon ON compras.Proveedores (razon_social);
     `);
 }
 
