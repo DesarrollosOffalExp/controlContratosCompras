@@ -1,7 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ContratosService } from '../../core/contratos.service';
+import { AuthService } from '../../core/auth.service';
 import { Sector } from '../../core/models';
 
 @Component({
@@ -17,6 +18,14 @@ import { Sector } from '../../core/models';
       <div class="alert alert-danger">{{ error() }}</div>
     }
 
+    @if (!esSistemas()) {
+      <div class="alert alert-secondary d-flex align-items-center">
+        <i class="bi bi-info-circle me-2"></i>
+        Solo Sistemas puede crear o modificar sectores. Si necesitás uno nuevo, pedilo a Sistemas.
+      </div>
+    }
+
+    @if (esSistemas()) {
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
         <form class="row g-2" (ngSubmit)="guardar()">
@@ -45,6 +54,7 @@ import { Sector } from '../../core/models';
         </form>
       </div>
     </div>
+    }
 
     <div class="card border-0 shadow-sm">
       <div class="card-body p-0">
@@ -58,21 +68,25 @@ import { Sector } from '../../core/models';
               <thead class="table-light">
                 <tr>
                   <th>Nombre</th>
-                  <th class="text-end">Acciones</th>
+                  @if (esSistemas()) {
+                    <th class="text-end">Acciones</th>
+                  }
                 </tr>
               </thead>
               <tbody>
                 @for (sector of sectores(); track sector.id) {
                   <tr>
                     <td>{{ sector.nombre }}</td>
-                    <td class="text-end text-nowrap">
-                      <button class="btn btn-sm btn-outline-primary" (click)="editar(sector)">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <button class="btn btn-sm btn-outline-danger ms-1" (click)="eliminar(sector)">
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </td>
+                    @if (esSistemas()) {
+                      <td class="text-end text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary" (click)="editar(sector)">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger ms-1" (click)="eliminar(sector)">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </td>
+                    }
                   </tr>
                 }
               </tbody>
@@ -91,7 +105,10 @@ export class SectoresListComponent implements OnInit {
   editando = false;
   form: Partial<Sector> = { nombre: '' };
 
-  constructor(private service: ContratosService) {}
+  /** Solo Sistemas (rol admin) crea o modifica sectores. El backend lo exige igual. */
+  esSistemas = computed(() => this.auth.usuario()?.rol === 'admin');
+
+  constructor(private service: ContratosService, private auth: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();

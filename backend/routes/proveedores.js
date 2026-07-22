@@ -48,7 +48,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/proveedores
-router.post('/', requireRole('admin', 'gestor'), async (req, res) => {
+router.post('/', requireRole('admin'), async (req, res) => {
   try {
     if (!req.body.razon_social) return res.status(400).json({ error: 'razon_social es obligatoria' });
     const pool = await poolPromise;
@@ -65,7 +65,7 @@ router.post('/', requireRole('admin', 'gestor'), async (req, res) => {
 });
 
 // PUT /api/proveedores/:id
-router.put('/:id', requireRole('admin', 'gestor'), async (req, res) => {
+router.put('/:id', requireRole('admin'), async (req, res) => {
   try {
     const pool = await poolPromise;
     const request = bindProveedor(pool.request(), req.body).input('id', sql.Int, Number(req.params.id));
