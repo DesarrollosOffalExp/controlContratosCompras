@@ -116,9 +116,20 @@ interface Segmento {
             <h2>Panel de Contratos</h2>
             <p>Estado de la cartera, vencimientos y montos comprometidos.</p>
           </div>
-          <a routerLink="/contratos/nuevo" class="btn-nuevo">
-            <i class="bi bi-plus-lg me-1"></i>Nuevo contrato
-          </a>
+          <div class="acciones">
+            <button type="button" class="btn-exp" (click)="exportarExcel()"
+                    [disabled]="filtrados().length === 0"
+                    title="Descarga los contratos filtrados para abrir en Excel">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
+            </button>
+            <button type="button" class="btn-exp" (click)="exportarPdf()"
+                    title="Abre el diálogo de impresión: elegí «Guardar como PDF»">
+              <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </button>
+            <a routerLink="/contratos/nuevo" class="btn-nuevo">
+              <i class="bi bi-plus-lg me-1"></i>Nuevo contrato
+            </a>
+          </div>
         </header>
 
         @if (cargando()) {
@@ -219,7 +230,13 @@ interface Segmento {
           <div class="grid2b">
             <div class="card">
               <div class="card-head">
-                <h3><i class="bi bi-exclamation-triangle text-warning me-2"></i>Próximos vencimientos</h3>
+                <div>
+                  <h3>
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>Próximos vencimientos
+                    <span class="info" tabindex="0" [attr.data-tip]="tipVencimientos()">i</span>
+                  </h3>
+                  <p>{{ subVencimientos() }}</p>
+                </div>
               </div>
               @if (porVencer().length === 0) {
                 <p class="vacio">Ningún contrato por vencer con estos filtros. 🎉</p>
@@ -248,16 +265,37 @@ interface Segmento {
             </div>
 
             <div class="card">
-              <div class="card-head"><h3>Distribución por sector</h3></div>
+              <div class="card-head">
+                <div>
+                  <h3>Distribución por sector</h3>
+                  <p>Pasá el mouse por cada sector para ver su total</p>
+                </div>
+              </div>
               @if (porSector().length > 0) {
                 <div class="barras">
                   @for (s of porSector(); track s.sector) {
-                    <div class="barra">
+                    <div class="barra" tabindex="0">
                       <div class="barra-top">
                         <span>{{ s.sector }}</span>
                         <span class="fw">{{ s.cantidad }}</span>
                       </div>
                       <div class="track"><div class="fill" [style.width.%]="s.pct"></div></div>
+
+                      <div class="sec-tip">
+                        <span class="st-sector">{{ s.sector }}</span>
+                        <span class="st-linea">
+                          {{ s.cantidad }} {{ s.cantidad === 1 ? 'contrato' : 'contratos' }}
+                          <span class="st-pct">({{ s.pctTotal }}% del total)</span>
+                        </span>
+                        @if (s.montos.length > 0) {
+                          <span class="st-cap">Monto contratado</span>
+                          @for (m of s.montos; track m) {
+                            <span class="st-monto">{{ m }}</span>
+                          }
+                        } @else {
+                          <span class="st-cap">Sin montos cargados</span>
+                        }
+                      </div>
                     </div>
                   }
                 </div>
@@ -331,6 +369,58 @@ interface Segmento {
       box-shadow: 0 8px 20px rgba(199,22,58,.35);
     }
     .btn-nuevo:hover { background: var(--red-bright); color: #fff; }
+
+    /* ---- Exportar ---- */
+    .acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn-exp {
+      background: var(--bg-2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 10px 14px; font-weight: 600; font-size: 14px;
+      cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s;
+    }
+    .btn-exp:hover:not(:disabled) { border-color: var(--red); background: rgba(199,22,58,.1); }
+    .btn-exp:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ---- Ícono de info con globito ---- */
+    .info {
+      display: inline-grid; place-items: center; width: 16px; height: 16px;
+      border-radius: 50%; border: 1px solid var(--muted); color: var(--muted);
+      font-size: 10px; font-weight: 700; font-style: normal; cursor: help;
+      margin-left: 6px; vertical-align: middle; position: relative;
+    }
+    .info:hover, .info:focus-visible { border-color: var(--red-bright); color: var(--red-bright); outline: none; }
+    .info::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 8px); left: 0; z-index: 20;
+      width: 300px; white-space: pre-line; text-align: left;
+      background: var(--bg-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+      font-size: 12px; font-weight: 400; line-height: 1.5;
+      box-shadow: 0 12px 30px rgba(0,0,0,.5);
+      opacity: 0; visibility: hidden; transition: opacity .15s;
+    }
+    .info:hover::after, .info:focus-visible::after { opacity: 1; visibility: visible; }
+
+    /* ---- Tooltip de sector (hover en la barra) ---- */
+    .barra { position: relative; }
+    .barra:focus-visible { outline: none; }
+    .barra:hover .barra-top, .barra:focus-visible .barra-top { color: var(--text); }
+    .sec-tip {
+      position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20;
+      display: flex; flex-direction: column; gap: 2px; min-width: 190px;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px;
+      padding: 10px 12px; box-shadow: 0 12px 30px rgba(0,0,0,.5);
+      opacity: 0; visibility: hidden; transform: translateY(4px);
+      transition: opacity .15s, transform .15s; pointer-events: none;
+    }
+    .barra:hover .sec-tip, .barra:focus-visible .sec-tip { opacity: 1; visibility: visible; transform: translateY(0); }
+    .st-sector { font-size: 13px; font-weight: 700; color: var(--text); }
+    .st-linea { font-size: 12px; color: var(--muted); }
+    .st-pct { opacity: .8; }
+    .st-cap {
+      margin-top: 6px; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .st-monto { font-size: 13px; font-weight: 700; color: var(--text); }
 
     /* ---- KPIs ---- */
     .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -413,6 +503,29 @@ interface Segmento {
 
     .loading { display: grid; place-items: center; padding: 80px 0; }
     .vacio { color: var(--muted); text-align: center; padding: 30px 0; font-size: 14px; margin: 0; }
+
+    /* ---- Impresión / Guardar como PDF ----
+       El panel es oscuro: para el PDF se pasa a fondo claro (legible y sin
+       gastar tinta) y se ocultan los controles que no aportan en papel. */
+    @media print {
+      .filtros, .acciones, .toggle, .info, .sec-tip { display: none !important; }
+
+      .dash { grid-template-columns: 1fr; gap: 0; }
+      .grid2, .grid2b { grid-template-columns: 1fr; gap: 12px; }
+      .kpis { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+      /* Cada tarjeta entera en la misma hoja. */
+      .card, .kpi { break-inside: avoid; page-break-inside: avoid; box-shadow: none; }
+
+      :host {
+        --panel: #fff; --panel-2: #fff; --bg-2: #f4f5f7;
+        --text: #111; --muted: #555; --line: #ccc;
+      }
+      .card, .kpi { background: #fff !important; border-color: #ccc !important; }
+      .head h2, .kpi-valor, .card-head h3, .lg-val, .barra-top .fw { color: #111 !important; }
+      .tabla td { color: #111 !important; }
+      .tabla a { color: #111 !important; }
+    }
   `],
 })
 export class DashboardComponent implements OnInit {
@@ -614,25 +727,145 @@ export class DashboardComponent implements OnInit {
   });
 
   // --- tabla por vencer ---
+  // Solo se muestran los más próximos; el total real está en totalPorVencer().
+  readonly MAX_VENCIMIENTOS = 8;
+
   porVencer = computed(() =>
     this.filtrados()
       .filter((c) => c.estado === 'activo' && c.dias_restantes != null && c.dias_restantes >= 0 && c.dias_restantes <= (this.venceEnDias() ?? 30))
       .sort((a, b) => (a.dias_restantes ?? 0) - (b.dias_restantes ?? 0))
-      .slice(0, 8),
+      .slice(0, this.MAX_VENCIMIENTOS),
   );
 
-  // --- barras por sector ---
+  // --- textos de ayuda de "Próximos vencimientos" ---
+  // La caja usa la ventana del filtro "Vence en" (30 por defecto), mientras que
+  // el KPI "Por vencer (30d)" siempre mira 30 días: por eso pueden no coincidir.
+  tipVencimientos = computed(() => {
+    const dias = this.venceEnDias() ?? 30;
+    const total = this.totalPorVencer();
+    return (
+      `Contratos ACTIVOS cuya fecha de fin cae dentro de los próximos ${dias} días.\n\n` +
+      `• La ventana la define el filtro «Vence en» (30 días si no elegís otra).\n` +
+      `• El KPI «Por vencer (30d)» siempre usa 30 días, así que puede no coincidir con esta lista.\n` +
+      `• Acá se listan solo los ${this.MAX_VENCIMIENTOS} más próximos` +
+      (total > this.MAX_VENCIMIENTOS ? ` (de ${total} en total).` : '.')
+    );
+  });
+
+  subVencimientos = computed(() => {
+    const dias = this.venceEnDias() ?? 30;
+    const total = this.totalPorVencer();
+    if (total === 0) return `Dentro de ${dias} días`;
+    const mostrados = Math.min(total, this.MAX_VENCIMIENTOS);
+    const detalle = total > mostrados ? `Los ${mostrados} más próximos de ${total}` : `${total} en total`;
+    return `${detalle} · dentro de ${dias} días`;
+  });
+
+  // Cuántos hay realmente por vencer (sin el recorte de la tabla).
+  private totalPorVencer = computed(() =>
+    this.filtrados().filter(
+      (c) => c.estado === 'activo' && c.dias_restantes != null &&
+             c.dias_restantes >= 0 && c.dias_restantes <= (this.venceEnDias() ?? 30),
+    ).length,
+  );
+
+  // --- barras por sector (con monto por moneda para el hover) ---
   porSector = computed(() => {
-    const conteo = new Map<string, number>();
+    const acc = new Map<string, { cantidad: number; montos: Map<string, number> }>();
     this.filtrados().forEach((c) => {
       const s = c.sector_nombre || 'Sin sector';
-      conteo.set(s, (conteo.get(s) ?? 0) + 1);
+      const e = acc.get(s) ?? { cantidad: 0, montos: new Map<string, number>() };
+      e.cantidad += 1;
+      const monto = Number(c.monto) || 0;
+      if (monto) e.montos.set(c.moneda, (e.montos.get(c.moneda) ?? 0) + monto);
+      acc.set(s, e);
     });
-    const max = Math.max(...conteo.values(), 1);
-    return [...conteo.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([sector, cantidad]) => ({ sector, cantidad, pct: (cantidad / max) * 100 }));
+
+    const totalContratos = this.filtrados().length || 1;
+    const max = Math.max(...[...acc.values()].map((v) => v.cantidad), 1);
+
+    return [...acc.entries()]
+      .sort((a, b) => b[1].cantidad - a[1].cantidad)
+      .map(([sector, v]) => ({
+        sector,
+        cantidad: v.cantidad,
+        pct: (v.cantidad / max) * 100,
+        pctTotal: Math.round((v.cantidad / totalContratos) * 100),
+        montos: [...v.montos.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([moneda, total]) => `${moneda} ${this.fmtMonto(total)}`),
+      }));
   });
+
+  private fmtMonto(n: number): string {
+    return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // --- exportación ---
+
+  /**
+   * Descarga los contratos filtrados como CSV (Excel lo abre nativo).
+   * Se usa ";" como separador y BOM UTF-8, que es lo que espera el Excel en
+   * español para respetar acentos y no partir los números con coma decimal.
+   */
+  /** Marca de orden de bytes: hace que Excel lea el CSV como UTF-8 (acentos). */
+  private readonly BOM_EXCEL = String.fromCharCode(0xFEFF);
+
+  exportarExcel(): void {
+    const filas = this.filtrados();
+    if (filas.length === 0) return;
+
+    const cabeceras = ['N°', 'Título', 'Proveedor', 'Sector', 'Tipo', 'Estado',
+                       'Moneda', 'Monto', 'Inicio', 'Fin', 'Días restantes'];
+
+    const cuerpo = filas.map((c) => [
+      c.numero, c.titulo, c.proveedor_nombre ?? '', c.sector_nombre ?? 'Sin sector',
+      c.tipo, c.estado, c.moneda,
+      (Number(c.monto) || 0).toFixed(2).replace('.', ','),   // coma decimal
+      this.fmtFecha(c.fecha_inicio), this.fmtFecha(c.fecha_fin),
+      c.dias_restantes ?? '',
+    ]);
+
+    const csv = [cabeceras, ...cuerpo]
+      .map((f) => f.map((v) => this.celdaCsv(v)).join(';'))
+      .join('\r\n');
+
+    // El BOM es lo que hace que Excel abra el archivo como UTF-8 y
+    // respete los acentos. Va como escape para que no sea un carácter invisible.
+    this.descargar(this.BOM_EXCEL + csv, this.nombreArchivo('csv'), 'text/csv;charset=utf-8;');
+  }
+
+  /** Abre el diálogo de impresión; el usuario elige "Guardar como PDF". */
+  exportarPdf(): void {
+    window.print();
+  }
+
+  /** Escapa una celda CSV: comillas dobles y saltos de línea. */
+  private celdaCsv(valor: unknown): string {
+    const s = String(valor ?? '');
+    return /[";\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  private fmtFecha(f: string | null | undefined): string {
+    if (!f) return '';
+    const d = new Date(f);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-AR');
+  }
+
+  private nombreArchivo(ext: string): string {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `contratos-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.${ext}`;
+  }
+
+  private descargar(contenido: string, nombre: string, tipo: string): void {
+    const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // --- acciones filtros ---
   toggleEstado(v: string) {
