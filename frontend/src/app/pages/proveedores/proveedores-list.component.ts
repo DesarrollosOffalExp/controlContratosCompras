@@ -2,6 +2,7 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProveedoresService } from '../../core/proveedores.service';
+import { AuthService } from '../../core/auth.service';
 import { Proveedor } from '../../core/models';
 
 @Component({
@@ -17,11 +18,20 @@ import { Proveedor } from '../../core/models';
                  [(ngModel)]="mostrarInactivos" />
           <label class="form-check-label small" for="verInactivos">Mostrar inactivos</label>
         </div>
-        <button class="btn btn-primary" (click)="nuevo()">
-          <i class="bi bi-plus-lg me-1"></i>Nuevo proveedor
-        </button>
+        @if (esSistemas()) {
+          <button class="btn btn-primary" (click)="nuevo()">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo proveedor
+          </button>
+        }
       </div>
     </div>
+
+    @if (!esSistemas()) {
+      <div class="alert alert-secondary d-flex align-items-center">
+        <i class="bi bi-info-circle me-2"></i>
+        Solo Sistemas puede crear o modificar proveedores. Si necesitás uno nuevo, pedilo a Sistemas.
+      </div>
+    }
 
     <div class="card border-0 shadow-sm">
       <div class="card-body p-0">
@@ -31,7 +41,10 @@ import { Proveedor } from '../../core/models';
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
-                <tr><th>Razón social</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Estado</th><th></th></tr>
+                <tr>
+                  <th>Razón social</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Estado</th>
+                  @if (esSistemas()) { <th></th> }
+                </tr>
               </thead>
               <tbody>
                 @for (c of visibles(); track c.id) {
@@ -47,11 +60,13 @@ import { Proveedor } from '../../core/models';
                         <span class="badge bg-secondary">Inactivo</span>
                       }
                     </td>
-                    <td class="text-end">
-                      <button class="btn btn-sm btn-outline-primary" (click)="editar(c)">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                    </td>
+                    @if (esSistemas()) {
+                      <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary" (click)="editar(c)">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                      </td>
+                    }
                   </tr>
                 }
               </tbody>
@@ -125,7 +140,10 @@ export class ProveedoresListComponent implements OnInit {
       : this.proveedores().filter((p) => this.esActivo(p))
   );
 
-  constructor(private service: ProveedoresService) {}
+  /** Solo Sistemas (rol admin) crea o modifica proveedores. El backend lo exige igual. */
+  esSistemas = computed(() => this.auth.usuario()?.rol === 'admin');
+
+  constructor(private service: ProveedoresService, private auth: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();

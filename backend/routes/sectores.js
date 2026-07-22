@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', requireRole('admin', 'gestor'), async (req, res) => {
+router.post('/', requireRole('admin'), async (req, res) => {
   try {
     const nombre = String(req.body?.nombre || '').trim();
     if (!nombre) return res.status(400).json({ error: 'El nombre del sector es obligatorio' });
@@ -42,7 +42,7 @@ router.post('/', requireRole('admin', 'gestor'), async (req, res) => {
   }
 });
 
-router.put('/:id', requireRole('admin', 'gestor'), async (req, res) => {
+router.put('/:id', requireRole('admin'), async (req, res) => {
   try {
     const nombre = String(req.body?.nombre || '').trim();
     if (!nombre) return res.status(400).json({ error: 'El nombre del sector es obligatorio' });
@@ -65,7 +65,7 @@ router.put('/:id', requireRole('admin', 'gestor'), async (req, res) => {
   }
 });
 
-router.delete('/:id', requireRole('admin', 'gestor'), async (req, res) => {
+router.delete('/:id', requireRole('admin'), async (req, res) => {
   try {
     const pool = await poolPromise;
     const { recordset: contratos } = await pool.request()
