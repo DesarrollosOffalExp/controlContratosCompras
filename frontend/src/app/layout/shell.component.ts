@@ -108,6 +108,12 @@ const SECCIONES = [
     <main class="container-fluid py-4 px-4">
       <router-outlet></router-outlet>
     </main>
+
+    <footer class="offal-footer">
+      <a class="offal-footer-mail" href="mailto:sistemas@offal.com.ar">sistemas&#64;offal.com.ar</a>
+      <span class="offal-footer-center">Offal Exp S.A. | Oficina de Sistemas</span>
+      <span class="offal-footer-spacer"></span>
+    </footer>
   `,
   styles: [`
     .offal-nav {
@@ -213,6 +219,38 @@ const SECCIONES = [
     @media (max-width: 520px) {
       .user-meta { display: none; }
       .user-chip { padding: 5px; }
+    }
+
+    /* ---- Footer institucional ---- */
+    .offal-footer {
+      display: grid; align-items: center;
+      grid-template-columns: 1fr auto 1fr;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 18px 20px;
+    }
+    .offal-footer-mail {
+      justify-self: start;
+      color: var(--muted); text-decoration: none;
+      transition: color .15s;
+    }
+    .offal-footer-mail:hover { color: var(--red-bright); }
+    .offal-footer-center {
+      justify-self: center; text-align: center;
+      color: var(--text);
+    }
+    .offal-footer-spacer { justify-self: end; }
+
+    @media (max-width: 560px) {
+      .offal-footer {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 6px;
+      }
+      .offal-footer-mail { justify-self: center; }
+      .offal-footer-spacer { display: none; }
     }
   `],
 })
