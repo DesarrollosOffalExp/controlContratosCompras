@@ -110,9 +110,8 @@ const SECCIONES = [
     </main>
 
     <footer class="offal-footer">
+      <span class="offal-footer-title">Offal Exp S.A. | Oficina de Sistemas</span>
       <a class="offal-footer-mail" href="mailto:sistemas@offal.com.ar">sistemas&#64;offal.com.ar</a>
-      <span class="offal-footer-center">Offal Exp S.A. | Oficina de Sistemas</span>
-      <span class="offal-footer-spacer"></span>
     </footer>
   `,
   styles: [`
@@ -221,37 +220,19 @@ const SECCIONES = [
       .user-chip { padding: 5px; }
     }
 
-    /* ---- Footer institucional ---- */
+    /* ---- Footer institucional (centrado y apilado) ---- */
     .offal-footer {
-      display: grid; align-items: center;
-      grid-template-columns: 1fr auto 1fr;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
       background: var(--panel);
       border-top: 1px solid var(--line);
       color: var(--muted);
       font-size: 12px;
       padding: 18px 20px;
+      text-align: center;
     }
-    .offal-footer-mail {
-      justify-self: start;
-      color: var(--muted); text-decoration: none;
-      transition: color .15s;
-    }
+    .offal-footer-title { color: var(--text); }
+    .offal-footer-mail { color: var(--muted); text-decoration: none; transition: color .15s; }
     .offal-footer-mail:hover { color: var(--red-bright); }
-    .offal-footer-center {
-      justify-self: center; text-align: center;
-      color: var(--text);
-    }
-    .offal-footer-spacer { justify-self: end; }
-
-    @media (max-width: 560px) {
-      .offal-footer {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        gap: 6px;
-      }
-      .offal-footer-mail { justify-self: center; }
-      .offal-footer-spacer { display: none; }
-    }
   `],
 })
 export class ShellComponent {
