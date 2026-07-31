@@ -1,4 +1,5 @@
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -8,6 +9,15 @@ const { poolPromise } = require('./db');
 const { authRequired } = require('./middleware/auth');
 
 const app = express();
+
+// Cabeceras de seguridad. CSP desactivado a propósito (se arma por app más
+// adelante; uno mal puesto rompe el front) y sin forzar políticas cross-origin.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(cors());
 app.use(express.json());
 
