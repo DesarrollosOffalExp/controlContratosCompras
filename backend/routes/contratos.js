@@ -17,16 +17,29 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
-    const unique = `contrato-${req.params.id}-${Date.now()}${path.extname(file.originalname) || '.pdf'}`;
+    // Sufijo aleatorio además del timestamp: al subir varios de una, comparten Date.now().
+    const rand = Math.round(Math.random() * 1e9);
+    const unique = `contrato-${req.params.id}-${Date.now()}-${rand}${path.extname(file.originalname) || ''}`;
     cb(null, unique);
   },
 });
+
+// Tipos permitidos para los adjuntos: PDF, imágenes y documentos de oficina.
+const MIMES_PERMITIDOS = new Set([
+  'application/pdf',
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+]);
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB por archivo
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') return cb(null, true);
-    cb(new Error('Solo se permiten archivos PDF'));
+    if (MIMES_PERMITIDOS.has(file.mimetype)) return cb(null, true);
+    cb(new Error('Tipo de archivo no permitido (PDF, imágenes o documentos de oficina)'));
   },
 });
 
@@ -35,7 +48,8 @@ const upload = multer({
 const SELECT_BASE = `
   SELECT c.*, pr.razon_social AS proveedor_nombre,
          s.nombre AS sector_nombre,
-         DATEDIFF(day, CAST(SYSDATETIME() AS DATE), c.fecha_fin) AS dias_restantes
+         DATEDIFF(day, CAST(SYSDATETIME() AS DATE), c.fecha_fin) AS dias_restantes,
+         (SELECT COUNT(*) FROM compras.ContratoAdjuntos a WHERE a.contrato_id = c.id) AS adjuntos_count
   FROM compras.Contratos c
   JOIN compras.Proveedores pr ON pr.id = c.proveedor_id
   LEFT JOIN compras.Sectores s ON s.id = c.sector_id
@@ -86,13 +100,29 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Trae un contrato ya "enriquecido" (proveedor, sector, dias_restantes).
+// Lista de adjuntos (metadatos, sin la ruta interna) de un contrato.
+async function listarAdjuntos(contratoId) {
+  const pool = await poolPromise;
+  const { recordset } = await pool.request()
+    .input('cid', sql.Int, Number(contratoId))
+    .query(`
+      SELECT id, archivo_nombre, tamano, content_type, created_at
+      FROM compras.ContratoAdjuntos
+      WHERE contrato_id = @cid
+      ORDER BY created_at, id
+    `);
+  return recordset;
+}
+
+// Trae un contrato ya "enriquecido" (proveedor, sector, dias_restantes, adjuntos).
 async function buscarPorId(id) {
   const pool = await poolPromise;
   const { recordset } = await pool.request()
     .input('id', sql.Int, Number(id))
     .query(SELECT_BASE + ' WHERE c.id = @id');
-  return recordset[0] || null;
+  const contrato = recordset[0] || null;
+  if (contrato) contrato.adjuntos = await listarAdjuntos(id);
+  return contrato;
 }
 
 // GET /api/contratos/:id
@@ -212,82 +242,93 @@ router.put('/:id', requireRole('admin', 'gestor'), async (req, res) => {
   }
 });
 
-// --- PDF del contrato ---
+// --- Adjuntos del contrato (varios PDFs / documentos) ---
 
-// POST /api/contratos/:id/archivo  (subir/reemplazar PDF, campo "archivo")
-router.post('/:id/archivo', requireRole('admin', 'gestor'), (req, res) => {
-  upload.single('archivo')(req, res, async (uploadErr) => {
+// POST /api/contratos/:id/adjuntos  (subir uno o varios, campo "archivos")
+router.post('/:id/adjuntos', requireRole('admin', 'gestor'), (req, res) => {
+  upload.array('archivos', 20)(req, res, async (uploadErr) => {
     if (uploadErr) {
-      return res.status(400).json({ error: uploadErr.message || 'Error al subir el archivo' });
+      return res.status(400).json({ error: uploadErr.message || 'Error al subir los archivos' });
     }
-    if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    }
+    const limpiar = () => req.files.forEach((f) => fs.unlink(f.path, () => {}));
     try {
       const pool = await poolPromise;
-      const { recordset } = await pool.request()
+      const existe = await pool.request()
         .input('id', sql.Int, Number(req.params.id))
-        .query('SELECT archivo_ruta FROM compras.Contratos WHERE id = @id');
-      if (recordset.length === 0) {
-        fs.unlink(req.file.path, () => {});
+        .query('SELECT id FROM compras.Contratos WHERE id = @id');
+      if (existe.recordset.length === 0) {
+        limpiar();
         return res.status(404).json({ error: 'Contrato no encontrado' });
       }
-      // Elimina el PDF anterior si existía
-      const anterior = recordset[0].archivo_ruta;
-      if (anterior) {
-        fs.unlink(path.join(UPLOAD_DIR, path.basename(anterior)), () => {});
+      for (const f of req.files) {
+        await pool.request()
+          .input('contrato_id', sql.Int, Number(req.params.id))
+          .input('archivo_nombre', sql.NVarChar, f.originalname)
+          .input('archivo_ruta', sql.NVarChar, f.filename)
+          .input('tamano', sql.BigInt, f.size)
+          .input('content_type', sql.NVarChar, f.mimetype)
+          .query(`
+            INSERT INTO compras.ContratoAdjuntos
+              (contrato_id, archivo_nombre, archivo_ruta, tamano, content_type)
+            VALUES (@contrato_id, @archivo_nombre, @archivo_ruta, @tamano, @content_type)
+          `);
       }
-      await pool.request()
-        .input('archivo_nombre', sql.NVarChar, req.file.originalname)
-        .input('archivo_ruta', sql.NVarChar, req.file.filename)
-        .input('id', sql.Int, Number(req.params.id))
-        .query('UPDATE compras.Contratos SET archivo_nombre = @archivo_nombre, archivo_ruta = @archivo_ruta WHERE id = @id');
-      res.json(await buscarPorId(req.params.id));
+      res.status(201).json(await buscarPorId(req.params.id));
     } catch (err) {
       console.error(err);
-      fs.unlink(req.file.path, () => {});
-      res.status(500).json({ error: 'Error al guardar el archivo' });
+      limpiar();
+      res.status(500).json({ error: 'Error al guardar los archivos' });
     }
   });
 });
 
-// GET /api/contratos/:id/archivo  (descargar PDF)
-router.get('/:id/archivo', async (req, res) => {
+// GET /api/contratos/:id/adjuntos/:adjId  (descargar un adjunto)
+router.get('/:id/adjuntos/:adjId', async (req, res) => {
   try {
     const pool = await poolPromise;
     const { recordset } = await pool.request()
       .input('id', sql.Int, Number(req.params.id))
-      .query('SELECT archivo_nombre, archivo_ruta FROM compras.Contratos WHERE id = @id');
-    if (recordset.length === 0 || !recordset[0].archivo_ruta) {
-      return res.status(404).json({ error: 'El contrato no tiene un PDF adjunto' });
+      .input('adjId', sql.Int, Number(req.params.adjId))
+      .query(`
+        SELECT archivo_nombre, archivo_ruta
+        FROM compras.ContratoAdjuntos
+        WHERE id = @adjId AND contrato_id = @id
+      `);
+    if (recordset.length === 0) {
+      return res.status(404).json({ error: 'Adjunto no encontrado' });
     }
     const ruta = path.join(UPLOAD_DIR, path.basename(recordset[0].archivo_ruta));
     if (!fs.existsSync(ruta)) {
       return res.status(404).json({ error: 'El archivo no se encuentra en el servidor' });
     }
-    res.download(ruta, recordset[0].archivo_nombre || 'contrato.pdf');
+    res.download(ruta, recordset[0].archivo_nombre || 'adjunto');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al descargar el archivo' });
+    res.status(500).json({ error: 'Error al descargar el adjunto' });
   }
 });
 
-// DELETE /api/contratos/:id/archivo  (quitar PDF)
-router.delete('/:id/archivo', requireRole('admin', 'gestor'), async (req, res) => {
+// DELETE /api/contratos/:id/adjuntos/:adjId  (quitar un adjunto)
+router.delete('/:id/adjuntos/:adjId', requireRole('admin', 'gestor'), async (req, res) => {
   try {
     const pool = await poolPromise;
     const { recordset } = await pool.request()
       .input('id', sql.Int, Number(req.params.id))
-      .query('SELECT archivo_ruta FROM compras.Contratos WHERE id = @id');
-    if (recordset.length === 0) return res.status(404).json({ error: 'Contrato no encontrado' });
-    if (recordset[0].archivo_ruta) {
-      fs.unlink(path.join(UPLOAD_DIR, path.basename(recordset[0].archivo_ruta)), () => {});
-    }
-    await pool.request()
-      .input('id', sql.Int, Number(req.params.id))
-      .query('UPDATE compras.Contratos SET archivo_nombre = NULL, archivo_ruta = NULL WHERE id = @id');
+      .input('adjId', sql.Int, Number(req.params.adjId))
+      .query(`
+        DELETE FROM compras.ContratoAdjuntos
+        OUTPUT DELETED.archivo_ruta
+        WHERE id = @adjId AND contrato_id = @id
+      `);
+    if (recordset.length === 0) return res.status(404).json({ error: 'Adjunto no encontrado' });
+    fs.unlink(path.join(UPLOAD_DIR, path.basename(recordset[0].archivo_ruta)), () => {});
     res.json(await buscarPorId(req.params.id));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al quitar el archivo' });
+    res.status(500).json({ error: 'Error al quitar el adjunto' });
   }
 });
 
@@ -295,13 +336,17 @@ router.delete('/:id/archivo', requireRole('admin', 'gestor'), async (req, res) =
 router.delete('/:id', requireRole('admin', 'gestor'), async (req, res) => {
   try {
     const pool = await poolPromise;
+    // Rutas de los archivos en disco antes de borrar (el FK ON DELETE CASCADE
+    // borra las filas de adjuntos, pero no los archivos físicos).
+    const adj = await pool.request()
+      .input('id', sql.Int, Number(req.params.id))
+      .query('SELECT archivo_ruta FROM compras.ContratoAdjuntos WHERE contrato_id = @id');
     const { recordset } = await pool.request()
       .input('id', sql.Int, Number(req.params.id))
       .query('DELETE FROM compras.Contratos OUTPUT DELETED.archivo_ruta WHERE id = @id');
     if (recordset.length === 0) return res.status(404).json({ error: 'Contrato no encontrado' });
-    if (recordset[0].archivo_ruta) {
-      fs.unlink(path.join(UPLOAD_DIR, path.basename(recordset[0].archivo_ruta)), () => {});
-    }
+    const rutas = [...adj.recordset.map((r) => r.archivo_ruta), recordset[0].archivo_ruta].filter(Boolean);
+    rutas.forEach((r) => fs.unlink(path.join(UPLOAD_DIR, path.basename(r)), () => {}));
     res.status(204).end();
   } catch (err) {
     console.error(err);

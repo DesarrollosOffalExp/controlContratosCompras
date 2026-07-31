@@ -163,6 +163,43 @@ async function inicializarEsquema(pool) {
         IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_compras_Contratos_FechaFin')
             CREATE INDEX IX_compras_Contratos_FechaFin ON compras.Contratos (fecha_fin);
     `);
+
+    // --- Adjuntos de contratos (1-a-N) ---
+    // Reemplaza el PDF único (columnas archivo_nombre/archivo_ruta de Contratos):
+    // un contrato puede tener varios PDFs o documentos. Las columnas legacy se
+    // conservan solo para el backfill de abajo; la app ya no las escribe.
+    await pool.request().query(`
+        IF OBJECT_ID(N'[compras].[ContratoAdjuntos]', N'U') IS NULL
+        CREATE TABLE compras.ContratoAdjuntos (
+            id             INT IDENTITY(1,1) PRIMARY KEY,
+            contrato_id    INT NOT NULL,
+            archivo_nombre NVARCHAR(255) NOT NULL,
+            archivo_ruta   NVARCHAR(500) NOT NULL,
+            tamano         BIGINT NULL,
+            content_type   NVARCHAR(120) NULL,
+            created_at     DATETIME2 NOT NULL CONSTRAINT DF_compras_ContratoAdjuntos_Created DEFAULT SYSUTCDATETIME(),
+            CONSTRAINT FK_compras_ContratoAdjuntos_Contrato FOREIGN KEY (contrato_id)
+                REFERENCES compras.Contratos(id) ON DELETE CASCADE
+        );
+    `);
+
+    await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_compras_ContratoAdjuntos_Contrato')
+            CREATE INDEX IX_compras_ContratoAdjuntos_Contrato ON compras.ContratoAdjuntos (contrato_id);
+    `);
+
+    // Backfill idempotente: pasa el PDF único ya cargado al nuevo modelo de
+    // adjuntos, sin perder los archivos existentes.
+    await pool.request().query(`
+        INSERT INTO compras.ContratoAdjuntos (contrato_id, archivo_nombre, archivo_ruta)
+        SELECT c.id, c.archivo_nombre, c.archivo_ruta
+        FROM compras.Contratos c
+        WHERE c.archivo_ruta IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM compras.ContratoAdjuntos a
+              WHERE a.contrato_id = c.id AND a.archivo_ruta = c.archivo_ruta
+          );
+    `);
 }
 
 // Conexión única (pool) reutilizada por toda la app.

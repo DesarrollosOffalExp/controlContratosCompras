@@ -1,10 +1,10 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ContratosService } from '../../core/contratos.service';
 import { ProveedoresService } from '../../core/proveedores.service';
-import { Proveedor, Contrato, Sector } from '../../core/models';
+import { Proveedor, Contrato, Sector, Adjunto } from '../../core/models';
 
 @Component({
   selector: 'app-contrato-form',
@@ -108,30 +108,56 @@ import { Proveedor, Contrato, Sector } from '../../core/models';
             <textarea class="form-control" rows="3" name="descripcion" [(ngModel)]="modelo.descripcion"></textarea>
           </div>
 
-          <!-- PDF del contrato -->
+          <!-- Adjuntos del contrato (varios) -->
           <div class="col-12">
             <label class="form-label small fw-semibold">
-              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>Documento PDF del contrato *
+              <i class="bi bi-paperclip me-1"></i>Adjuntos del contrato *
             </label>
-            @if (modelo.archivo_nombre) {
-              <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="badge bg-light text-dark border">
-                  <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ modelo.archivo_nombre }}
-                </span>
-                <button type="button" class="btn btn-sm btn-outline-primary" (click)="descargarPdf()">
-                  <i class="bi bi-download me-1"></i>Descargar
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" (click)="quitarPdf()">
-                  <i class="bi bi-trash me-1"></i>Quitar
-                </button>
-              </div>
+
+            <!-- Ya guardados (modo edición) -->
+            @if (modelo.adjuntos?.length) {
+              <ul class="list-group mb-2">
+                @for (a of modelo.adjuntos; track a.id) {
+                  <li class="list-group-item d-flex align-items-center justify-content-between">
+                    <span class="text-truncate me-2">
+                      <i class="bi bi-file-earmark-text text-primary me-2"></i>{{ a.archivo_nombre }}
+                      <small class="text-muted ms-1">{{ tamano(a.tamano) }}</small>
+                    </span>
+                    <span class="btn-group btn-group-sm flex-shrink-0">
+                      <button type="button" class="btn btn-outline-primary" title="Descargar"
+                              (click)="descargar(a)"><i class="bi bi-download"></i></button>
+                      <button type="button" class="btn btn-outline-danger" title="Quitar"
+                              (click)="quitar(a)"><i class="bi bi-trash"></i></button>
+                    </span>
+                  </li>
+                }
+              </ul>
             }
-            <input type="file" class="form-control" accept="application/pdf" (change)="onArchivo($event)"
-                   [required]="!modelo.archivo_nombre" />
+
+            <!-- Nuevos, pendientes de subir -->
+            @if (nuevos.length) {
+              <ul class="list-group mb-2">
+                @for (f of nuevos; track f.name; let i = $index) {
+                  <li class="list-group-item d-flex align-items-center justify-content-between">
+                    <span class="text-truncate me-2">
+                      <i class="bi bi-file-earmark-plus text-success me-2"></i>{{ f.name }}
+                      <small class="text-muted ms-1">{{ tamano(f.size) }}</small>
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                            title="Quitar de la selección" (click)="quitarNuevo(i)">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+
+            <input #fileInput type="file" class="form-control" multiple
+                   accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" (change)="onArchivos($event)" />
             <div class="form-text">
-              Solo PDF, máximo 15 MB. El PDF es obligatorio.
-              @if (esNuevo) { Se subirá al guardar el contrato. }
-              @else if (archivo) { <span class="text-primary">Se reemplazará al guardar.</span> }
+              PDF, imágenes o documentos. Podés seleccionar varios. Máximo 15 MB cada uno.
+              @if (esNuevo) { Se subirán al guardar el contrato. }
+              @else { Los nuevos se agregan al guardar; los ya cargados no se pisan. }
             </div>
           </div>
         </div>
@@ -178,7 +204,8 @@ export class ContratoFormComponent implements OnInit {
   guardando = signal(false);
   error = signal('');
   numeroAsignado = signal('');
-  archivo: File | null = null;
+  nuevos: File[] = [];
+  @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
 
   modelo: Partial<Contrato> = {
     numero: '',
@@ -217,9 +244,28 @@ export class ContratoFormComponent implements OnInit {
     }
   }
 
-  onArchivo(event: Event): void {
+  onArchivos(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.archivo = input.files && input.files.length ? input.files[0] : null;
+    if (input.files) {
+      this.nuevos = [...this.nuevos, ...Array.from(input.files)];
+    }
+    // Se limpia el input para poder volver a elegir el mismo archivo si hiciera falta.
+    if (this.fileInput) this.fileInput.nativeElement.value = '';
+  }
+
+  quitarNuevo(i: number): void {
+    this.nuevos.splice(i, 1);
+  }
+
+  tieneAdjuntos(): boolean {
+    return (this.modelo.adjuntos?.length ?? 0) > 0 || this.nuevos.length > 0;
+  }
+
+  tamano(bytes?: number): string {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   guardar(): void {
@@ -228,8 +274,8 @@ export class ContratoFormComponent implements OnInit {
       this.error.set('Debe seleccionar un sector');
       return;
     }
-    if (!this.archivo && !this.modelo.archivo_nombre) {
-      this.error.set('Debe adjuntar el PDF del contrato');
+    if (!this.tieneAdjuntos()) {
+      this.error.set('Debe adjuntar al menos un archivo');
       return;
     }
     this.guardando.set(true);
@@ -246,11 +292,11 @@ export class ContratoFormComponent implements OnInit {
             this.router.navigate(['/contratos']);
           }
         };
-        if (this.archivo) {
-          this.service.subirArchivo(contrato.id, this.archivo).subscribe({
+        if (this.nuevos.length) {
+          this.service.subirAdjuntos(contrato.id, this.nuevos).subscribe({
             next: () => finalizar(),
             error: (err) => {
-              this.error.set(err.error?.error || 'El contrato se guardó, pero falló la subida del PDF');
+              this.error.set(err.error?.error || 'El contrato se guardó, pero falló la subida de los adjuntos');
               this.guardando.set(false);
             },
           });
@@ -270,23 +316,22 @@ export class ContratoFormComponent implements OnInit {
     this.router.navigate(['/contratos']);
   }
 
-  descargarPdf(): void {
+  descargar(a: Adjunto): void {
     if (!this.id) return;
-    this.service.descargarArchivo(this.id).subscribe((blob) => {
+    this.service.descargarAdjunto(this.id, a.id).subscribe((blob) => {
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = this.modelo.archivo_nombre || `contrato-${this.modelo.numero}.pdf`;
-      a.click();
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = a.archivo_nombre || 'adjunto';
+      link.click();
       URL.revokeObjectURL(url);
     });
   }
 
-  quitarPdf(): void {
-    if (!this.id || !confirm('¿Quitar el PDF adjunto de este contrato?')) return;
-    this.service.eliminarArchivo(this.id).subscribe((c) => {
-      this.modelo.archivo_nombre = c.archivo_nombre;
-      this.modelo.archivo_ruta = c.archivo_ruta;
+  quitar(a: Adjunto): void {
+    if (!this.id || !confirm(`¿Quitar "${a.archivo_nombre}" de este contrato?`)) return;
+    this.service.eliminarAdjunto(this.id, a.id).subscribe((c) => {
+      this.modelo.adjuntos = c.adjuntos;
     });
   }
 }

@@ -27,6 +27,14 @@ export interface Sector {
   created_at?: string;
 }
 
+export interface Adjunto {
+  id: number;
+  archivo_nombre: string;
+  tamano?: number;
+  content_type?: string;
+  created_at?: string;
+}
+
 export interface Contrato {
   id: number;
   numero: string;
@@ -43,8 +51,8 @@ export interface Contrato {
   fecha_fin: string;
   estado: EstadoContrato;
   responsable?: string;
-  archivo_nombre?: string | null;
-  archivo_ruta?: string | null;
+  adjuntos?: Adjunto[];
+  adjuntos_count?: number;
   dias_restantes?: number;
   created_at?: string;
   updated_at?: string;

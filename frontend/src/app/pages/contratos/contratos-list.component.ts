@@ -70,7 +70,7 @@ import { Contrato, Sector } from '../../core/models';
               <thead class="table-light">
                 <tr>
                   <th>N°</th><th>Título</th><th>Proveedor</th><th>Sector</th><th>Tipo</th>
-                  <th class="text-end">Monto</th><th>Vigencia</th><th>PDF</th><th>Estado</th><th></th>
+                  <th class="text-end">Monto</th><th>Vigencia</th><th class="text-center">Adjuntos</th><th>Estado</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -93,11 +93,11 @@ import { Contrato, Sector } from '../../core/models';
                       {{ c.fecha_fin | date: 'dd/MM/yy' }}
                     </td>
                     <td class="text-center">
-                      @if (c.archivo_nombre) {
-                        <button class="btn btn-sm btn-outline-danger" title="Descargar {{ c.archivo_nombre }}"
-                                (click)="descargarPdf(c)">
-                          <i class="bi bi-file-earmark-pdf"></i>
-                        </button>
+                      @if (c.adjuntos_count) {
+                        <a class="btn btn-sm btn-outline-primary" title="{{ c.adjuntos_count }} adjunto(s) — abrir para gestionar"
+                           [routerLink]="['/contratos', c.id]">
+                          <i class="bi bi-paperclip"></i> {{ c.adjuntos_count }}
+                        </a>
                       } @else {
                         <span class="text-muted">—</span>
                       }
@@ -153,17 +153,6 @@ export class ContratosListComponent implements OnInit {
   eliminar(c: Contrato): void {
     if (!confirm(`¿Eliminar el contrato ${c.numero}?`)) return;
     this.service.eliminar(c.id).subscribe(() => this.cargar());
-  }
-
-  descargarPdf(c: Contrato): void {
-    this.service.descargarArchivo(c.id).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = c.archivo_nombre || `contrato-${c.numero}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
   }
 
   esPorVencer(c: Contrato): boolean {

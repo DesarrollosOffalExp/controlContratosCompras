@@ -45,19 +45,19 @@ export class ContratosService {
     return this.http.delete<void>(`${this.api}/${id}`);
   }
 
-  // --- PDF adjunto del contrato ---
-  subirArchivo(id: number, archivo: File): Observable<Contrato> {
+  // --- Adjuntos del contrato (varios PDFs / documentos) ---
+  subirAdjuntos(id: number, archivos: File[]): Observable<Contrato> {
     const form = new FormData();
-    form.append('archivo', archivo);
-    return this.http.post<Contrato>(`${this.api}/${id}/archivo`, form);
+    archivos.forEach((a) => form.append('archivos', a));
+    return this.http.post<Contrato>(`${this.api}/${id}/adjuntos`, form);
   }
 
-  descargarArchivo(id: number): Observable<Blob> {
-    return this.http.get(`${this.api}/${id}/archivo`, { responseType: 'blob' });
+  descargarAdjunto(id: number, adjuntoId: number): Observable<Blob> {
+    return this.http.get(`${this.api}/${id}/adjuntos/${adjuntoId}`, { responseType: 'blob' });
   }
 
-  eliminarArchivo(id: number): Observable<Contrato> {
-    return this.http.delete<Contrato>(`${this.api}/${id}/archivo`);
+  eliminarAdjunto(id: number, adjuntoId: number): Observable<Contrato> {
+    return this.http.delete<Contrato>(`${this.api}/${id}/adjuntos/${adjuntoId}`);
   }
 
   listarSectores(): Observable<Sector[]> {
