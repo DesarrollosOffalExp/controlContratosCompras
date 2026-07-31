@@ -108,6 +108,11 @@ const SECCIONES = [
     <main class="container-fluid py-4 px-4">
       <router-outlet></router-outlet>
     </main>
+
+    <footer class="offal-footer">
+      <span class="offal-footer-title">Offal Exp S.A. | Oficina de Sistemas</span>
+      <a class="offal-footer-mail" href="mailto:sistemas@offal.com.ar">sistemas&#64;offal.com.ar</a>
+    </footer>
   `,
   styles: [`
     .offal-nav {
@@ -214,6 +219,20 @@ const SECCIONES = [
       .user-meta { display: none; }
       .user-chip { padding: 5px; }
     }
+
+    /* ---- Footer institucional (centrado y apilado) ---- */
+    .offal-footer {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .offal-footer-title { color: var(--text); }
+    .offal-footer-mail { color: var(--muted); text-decoration: none; transition: color .15s; }
+    .offal-footer-mail:hover { color: var(--red-bright); }
   `],
 })
 export class ShellComponent {
